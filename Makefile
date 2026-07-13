@@ -15,7 +15,7 @@ clean:
 	rm -rf .mypy_cache .pytest_cache
 
 run:
-	uv run $(PYTHON) -m $(MAIN)
+	uv run $(PYTHON) -m src
 
 lint:
 	uv run flake8 $(FILES_DIR)
