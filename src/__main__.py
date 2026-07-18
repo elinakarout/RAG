@@ -1,9 +1,10 @@
-from src.chunking import text_chunker, code_chunker
+import fire
+
+from src.cli import Cli
 
 
-def main():
-    text_chunker()
-    code_chunker()
+def main() -> None:
+    fire.Fire(Cli)
 
 
 if __name__ == "__main__":

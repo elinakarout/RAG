@@ -2,3 +2,6 @@
 given/datasets_public
 given/moulinette_pkg
 given/vllm-0.10.1
+PROJECT_PLAN.md
+LANGCHAIN_NOTES.md
+data/raw/*
