@@ -1,5 +1,4 @@
 import fire
-
 from src.cli import Cli
 
 
