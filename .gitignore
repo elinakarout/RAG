@@ -7,3 +7,7 @@ LANGCHAIN_NOTES.md
 data/raw/*
 data/processed
 data/output
+exams/
+given/
+evaluations/
+private/

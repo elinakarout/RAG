@@ -1,3 +1,5 @@
+"""BM25 indexing and retrieval over chunked MinimalSource corpora."""
+
 import bm25s
 from ..data import MinimalSource
 
@@ -6,6 +8,15 @@ def build_index(
     chunks: list[MinimalSource],
     save_dir: str = "data/processed",
 ) -> bm25s.BM25:
+    """Tokenize, index, and persist a corpus of chunks with BM25.
+
+    Args:
+        chunks: The chunks to index (from text_chunker/code_chunker).
+        save_dir: Directory to persist the index and corpus to.
+
+    Returns:
+        The built BM25 retriever.
+    """
     texts = [chunk.chunk_content for chunk in chunks]
     corpus = [
         {
@@ -31,6 +42,17 @@ def retrieve_top_k(
     retriever: bm25s.BM25,
     k: int = 10,
 ) -> list[MinimalSource]:
+    """Return the top-k chunks for a single query, ranked by BM25 score.
+
+    Args:
+        query: The query text.
+        retriever: A BM25 index loaded with its corpus.
+        k: Number of top results to return.
+
+    Returns:
+        Up to k MinimalSource results, or an empty list for a blank query,
+        k <= 0, or an empty corpus.
+    """
     if not query or not query.strip() or k <= 0:
         return []
     query_tokens = bm25s.tokenize([query], stopwords="en", show_progress=False)

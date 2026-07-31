@@ -1,6 +1,5 @@
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
-
 from ..data import MinimalSource
 
 
@@ -8,6 +7,16 @@ def code_chunker(
     repo_path: str = "data/raw/",
     max_chunk_size: int = 2000,
 ) -> list[MinimalSource]:
+    """Chunk every Python file under repo_path into MinimalSource spans.
+
+    Args:
+        repo_path: Directory to recursively search for .py files.
+        max_chunk_size: Maximum characters per chunk.
+
+    Returns:
+        One MinimalSource per chunk, with character offsets into the
+        original file content.
+    """
     loader = DirectoryLoader(
         path=repo_path,
         glob="**/*.py",

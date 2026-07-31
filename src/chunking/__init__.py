@@ -1,3 +1,5 @@
+"""Markdown and Python code chunking utilities."""
+
 from .text_chunker import text_chunker
 from .code_chunker import code_chunker
 

@@ -1,3 +1,5 @@
+"""Local recall@k evaluation."""
+
 from .recall import evaluate_recall
 
 

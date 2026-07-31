@@ -1,3 +1,5 @@
+"""Pydantic data models shared across the RAG pipeline."""
+
 from .models import (
     MinimalSource,
     UnansweredQuestion,

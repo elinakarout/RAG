@@ -7,6 +7,16 @@ def text_chunker(
     repo_path: str = "data/raw/",
     max_chunk_size: int = 2000,
 ) -> list[MinimalSource]:
+    """Chunk every markdown file under repo_path into MinimalSource spans.
+
+    Args:
+        repo_path: Directory to recursively search for .md files.
+        max_chunk_size: Maximum characters per chunk.
+
+    Returns:
+        One MinimalSource per chunk, with character offsets into the
+        original file content.
+    """
     loader = DirectoryLoader(
         path=repo_path,
         glob="**/*.md",

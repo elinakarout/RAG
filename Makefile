@@ -1,6 +1,6 @@
 PYTHON := python3
 
-MAIN := src.main
+MAIN := src
 
 FILES_DIR := src
 
@@ -15,7 +15,7 @@ clean:
 	rm -rf .mypy_cache .pytest_cache
 
 run:
-	uv run $(PYTHON) -m src
+	uv run $(PYTHON) -m src index
 
 lint:
 	uv run flake8 $(FILES_DIR)
