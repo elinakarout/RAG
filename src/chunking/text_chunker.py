@@ -21,7 +21,8 @@ def text_chunker(
         path=repo_path,
         glob="**/*.md",
         loader_cls=TextLoader,
-        recursive=True
+        recursive=True,
+        silent_errors=True,
     )
     raw_docs = loader.load()
 

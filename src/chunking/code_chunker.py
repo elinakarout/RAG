@@ -21,7 +21,8 @@ def code_chunker(
         path=repo_path,
         glob="**/*.py",
         loader_cls=TextLoader,
-        recursive=True
+        recursive=True,
+        silent_errors=True,
     )
     raw_docs = loader.load()
 

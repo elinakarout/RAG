@@ -92,6 +92,9 @@ def _load_retrieval_backends(
     except FileNotFoundError:
         print(f"No index found at {index_dir}. Run `index` first.")
         return None
+    except (OSError, ValueError) as e:
+        print(f"Could not load index at {index_dir}: {e}")
+        return None
 
     if method == "bm25":
         return retriever, None
@@ -101,8 +104,30 @@ def _load_retrieval_backends(
     except FileNotFoundError:
         print(f"No embedding index found at {index_dir}. Run `index` first.")
         return None
+    except (OSError, ValueError) as e:
+        print(f"Could not load embedding index at {index_dir}: {e}")
+        return None
 
     return retriever, embeddings
+
+
+def _write_json_output(path: Path, content: str) -> bool:
+    """Write a JSON string to path, creating parent directories.
+
+    Args:
+        path: File to write.
+        content: JSON text to write.
+
+    Returns:
+        True on success. On failure, prints a message and returns False.
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    except OSError as e:
+        print(f"Could not write output to {path}: {e}")
+        return False
+    return True
 
 
 def _retrieve_sources(
@@ -137,6 +162,33 @@ def _retrieve_sources(
     return retrieve_top_k(query, retriever, k)
 
 
+def _safe_retrieve_sources(
+    method: str,
+    query: str,
+    retriever: bm25s.BM25,
+    embeddings: np.ndarray | None,
+    k: int,
+) -> list[MinimalSource]:
+    """Like _retrieve_sources, but never lets one bad question abort a batch.
+
+    Args:
+        method: One of "bm25", "semantic", "hybrid".
+        query: The query text.
+        retriever: A BM25 index loaded with its corpus.
+        embeddings: The embeddings matrix, required for semantic/hybrid.
+        k: Number of top results to return.
+
+    Returns:
+        Up to k MinimalSource results, or an empty list if retrieval
+        raised (a warning is printed in that case).
+    """
+    try:
+        return _retrieve_sources(method, query, retriever, embeddings, k)
+    except Exception as e:
+        print(f"Retrieval failed for question {query!r}: {e}")
+        return []
+
+
 class Cli:
     """Fire-exposed commands for indexing, retrieving, and answering."""
 
@@ -153,13 +205,25 @@ class Cli:
             max_chunk_size: Maximum characters per chunk.
             save_dir: Directory to write the indices and corpus to.
         """
-        text_chunks = text_chunker(repo_path, max_chunk_size)
-        code_chunks = code_chunker(repo_path, max_chunk_size)
+        try:
+            text_chunks = text_chunker(repo_path, max_chunk_size)
+            code_chunks = code_chunker(repo_path, max_chunk_size)
+        except FileNotFoundError:
+            print(f"Repository path not found: {repo_path}")
+            return
         print(f"Total markdown chunks created: {len(text_chunks)}")
         print(f"Total code chunks created: {len(code_chunks)}")
 
         chunks = text_chunks + code_chunks
-        build_index(chunks, save_dir)
+        if not chunks:
+            print(f"No markdown or Python files found under {repo_path}.")
+            return
+
+        try:
+            build_index(chunks, save_dir)
+        except (OSError, ValueError) as e:
+            print(f"Could not build BM25 index: {e}")
+            return
         print(f"BM25 index saved to {save_dir}")
 
         # The embedding index is a bonus feature (semantic/hybrid search).
@@ -194,7 +258,9 @@ class Cli:
             return
         retriever, embeddings = loaded
 
-        sources = _retrieve_sources(method, query, retriever, embeddings, k)
+        sources = _safe_retrieve_sources(
+            method, query, retriever, embeddings, k
+        )
         result = MinimalSearchResults(
             question_id="",
             question=query,
@@ -241,7 +307,7 @@ class Cli:
             MinimalSearchResults(
                 question_id=question.question_id,
                 question=question.question,
-                retrieved_sources=_retrieve_sources(
+                retrieved_sources=_safe_retrieve_sources(
                     method, question.question, retriever, embeddings, k
                 ),
             )
@@ -249,16 +315,12 @@ class Cli:
         ]
 
         output = StudentSearchResults(search_results=results, k=k)
-
-        save_dir = Path(save_directory)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        out_path = save_dir / Path(dataset_path).name
-        out_path.write_text(
-            output.model_dump_json(
-                by_alias=True, exclude=_SEARCH_RESULTS_EXCLUDE
-            )
+        out_path = Path(save_directory) / Path(dataset_path).name
+        content = output.model_dump_json(
+            by_alias=True, exclude=_SEARCH_RESULTS_EXCLUDE
         )
-        print(f"Saved student_search_results to {out_path}")
+        if _write_json_output(out_path, content):
+            print(f"Saved student_search_results to {out_path}")
 
     def evaluate(
         self,
@@ -319,8 +381,14 @@ class Cli:
             return
         retriever, embeddings = loaded
 
-        sources = _retrieve_sources(method, query, retriever, embeddings, k)
-        answer_text = generate_answer(query, sources)
+        sources = _safe_retrieve_sources(
+            method, query, retriever, embeddings, k
+        )
+        try:
+            answer_text = generate_answer(query, sources)
+        except Exception as e:
+            print(f"Could not generate an answer: {e}")
+            return
         print(answer_text)
 
     def answer_dataset(
@@ -354,7 +422,16 @@ class Cli:
             hydrated_sources = [
                 _hydrate_source(source) for source in result.retrieved_sources
             ]
-            answer_text = generate_answer(result.question, hydrated_sources)
+            try:
+                answer_text = generate_answer(
+                    result.question, hydrated_sources
+                )
+            except Exception as e:
+                print(
+                    f"Answer generation failed for question "
+                    f"{result.question_id!r}: {e}"
+                )
+                answer_text = ""
             answers.append(
                 MinimalAnswer(
                     question_id=result.question_id,
@@ -367,13 +444,11 @@ class Cli:
         output = StudentSearchResultsAndAnswer(
             search_results=answers, k=student_results.k
         )
-
-        save_dir = Path(save_directory)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        out_path = save_dir / Path(student_search_results_path).name
-        out_path.write_text(
-            output.model_dump_json(
-                by_alias=True, exclude=_SEARCH_RESULTS_EXCLUDE
-            )
+        out_path = (
+            Path(save_directory) / Path(student_search_results_path).name
         )
-        print(f"Saved student_search_results_and_answer to {out_path}")
+        content = output.model_dump_json(
+            by_alias=True, exclude=_SEARCH_RESULTS_EXCLUDE
+        )
+        if _write_json_output(out_path, content):
+            print(f"Saved student_search_results_and_answer to {out_path}")
