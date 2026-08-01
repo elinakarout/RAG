@@ -197,13 +197,18 @@ class Cli:
         repo_path: str = "data/raw/",
         max_chunk_size: int = 2000,
         save_dir: str = "data/processed",
+        build_embeddings: bool = False,
     ) -> None:
-        """Chunk the repository and persist BM25 and semantic indices.
+        """Chunk the repository and persist a searchable BM25 index.
 
         Args:
             repo_path: Directory to ingest markdown/code files from.
             max_chunk_size: Maximum characters per chunk.
-            save_dir: Directory to write the indices and corpus to.
+            save_dir: Directory to write the index and corpus to.
+            build_embeddings: If True, also build the bonus semantic
+                (embedding) index used by --method semantic/hybrid. Off by
+                default so `index` only ever performs the mandatory,
+                lexical-only part of the pipeline.
         """
         try:
             text_chunks = text_chunker(repo_path, max_chunk_size)
@@ -225,6 +230,9 @@ class Cli:
             print(f"Could not build BM25 index: {e}")
             return
         print(f"BM25 index saved to {save_dir}")
+
+        if not build_embeddings:
+            return
 
         # The embedding index is a bonus feature (semantic/hybrid search).
         # Its failure - e.g. no network access to download the model -

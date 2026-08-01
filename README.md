@@ -31,10 +31,19 @@ uv run python -m src index --max_chunk_size 2000
 ```
 
 Chunks every markdown/Python file under `data/raw/`, builds a BM25 index, and
-saves everything to `data/processed/`. Also attempts to build a semantic
-(embedding) index for the bonus features - see [Bonus features](#bonus-features)
-below; if that step fails (e.g. no network access), the mandatory BM25 index
-is unaffected.
+saves everything to `data/processed/`. This is the mandatory part only - no
+network access or embedding model required.
+
+To also build the bonus semantic (embedding) index, needed for
+`--method semantic`/`--method hybrid` (see [Bonus features](#bonus-features)):
+
+```bash
+uv run python -m src index --max_chunk_size 2000 --build_embeddings
+```
+
+If that step fails (e.g. no network access to download the embedding model),
+the mandatory BM25 index is unaffected - only semantic/hybrid retrieval stays
+unavailable.
 
 ### Search / answer
 
@@ -302,10 +311,10 @@ retrieval or context assembly.
   ...)` plus `populate_by_name=True`, so the Python attribute matches the
   subject's model while the JSON on disk matches the real grader.
 - **BM25 as the default, always-available method**: `--method` defaults to
-  `bm25` everywhere, and `index` never lets a bonus embedding-build failure
-  (e.g. no network access) take down the mandatory BM25 index - the
-  mandatory path must work unconditionally, independent of the bonus
-  dependencies being available.
+  `bm25` everywhere, and `index` builds only the mandatory BM25 index unless
+  `--build_embeddings` is passed - so the mandatory path never depends on
+  network access or the embedding model, and never gets taken down by a
+  bonus embedding-build failure even when that flag is used.
 - **RRF over weighted score fusion**: see [Retrieval method](#retrieval-method).
 
 ## Challenges faced
@@ -341,8 +350,11 @@ retrieval or context assembly.
 ## Example usage
 
 ```bash
-# Build the index (BM25 + semantic, if available)
+# Build the mandatory index (BM25 only)
 uv run python -m src index --max_chunk_size 2000
+
+# Also build the bonus semantic index (needs network access)
+uv run python -m src index --max_chunk_size 2000 --build_embeddings
 
 # Ask a single question
 uv run python -m src search "How to configure the OpenAI server?" --k 5
