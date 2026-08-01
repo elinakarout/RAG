@@ -1,6 +1,4 @@
-"""Pydantic data models exchanged between the RAG pipeline's stages."""
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 from typing import List
 import uuid
 
@@ -66,14 +64,8 @@ class MinimalSearchResults(BaseModel):
         retrieved_sources: Top-k retrieved source locations, ranked.
     """
 
-    # The moulinette's own schema expects the JSON key "question_str", even
-    # though the subject's pseudocode names the field "question" - alias it
-    # so our attribute name matches the subject while our output matches the
-    # real grader. populate_by_name keeps both spellings valid on input.
-    model_config = ConfigDict(populate_by_name=True)
-
     question_id: str
-    question: str = Field(alias="question_str")
+    question: str
     retrieved_sources: List[MinimalSource]
 
 
